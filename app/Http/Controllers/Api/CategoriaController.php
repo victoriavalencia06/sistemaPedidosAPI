@@ -40,9 +40,18 @@ class CategoriaController extends Controller
 
     public function destroy($id)
     {
-        $cat = Categoria::findOrFail($id);
-        $cat->estado = 0;
-        $cat->save();
+        $categoria = Categoria::findOrFail($id);
+
+        // verificar si tiene productos activos
+        $hasProductos = $categoria->productos()->where('estado', true)->exists();
+        if ($hasProductos) {
+            return response()->json([
+                'message' => 'No se puede desactivar la categoría: tiene productos activos'
+            ], 400);
+        }
+
+        $categoria->estado = false;
+        $categoria->save();
 
         return response()->json(['message' => 'Categoría desactivada']);
     }

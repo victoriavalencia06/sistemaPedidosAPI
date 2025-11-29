@@ -19,13 +19,17 @@ class ProductoController extends Controller
             'idCategoria' => 'required|exists:categoria,idCategoria',
             'nombre' => 'required|string|max:100',
             'precio' => 'required|numeric|min:0',
+            'descripcion' => 'nullable|string',
+            'stock' => 'nullable|integer|min:0',
         ]);
 
         $prod = Producto::create([
             'idCategoria' => $request->idCategoria,
             'nombre' => $request->nombre,
+            'descripcion' => $request->descripcion ?? null,
             'precio' => $request->precio,
-            'estado' => true
+            'stock' => $request->stock ?? 0,
+            'estado' => true,
         ]);
 
         return response()->json($prod, 201);
@@ -40,7 +44,22 @@ class ProductoController extends Controller
     {
         $prod = Producto::findOrFail($id);
 
-        $prod->update($request->only('idCategoria', 'nombre', 'precio', 'estado'));
+        $request->validate([
+            'idCategoria' => 'nullable|exists:categoria,idCategoria',
+            'nombre' => 'nullable|string|max:100',
+            'precio' => 'nullable|numeric|min:0',
+            'descripcion' => 'nullable|string',
+            'stock' => 'nullable|integer|min:0',
+            'estado' => 'nullable|boolean',
+        ]);
+
+        $data = $request->only('idCategoria', 'nombre', 'precio', 'descripcion', 'stock', 'estado');
+
+        if (! $request->has('stock')) {
+            unset($data['stock']);
+        }
+
+        $prod->update($data);
 
         return response()->json($prod);
     }

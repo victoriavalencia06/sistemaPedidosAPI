@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Reporte;
+use Carbon\Carbon;
 
 class ReporteController extends Controller
 {
@@ -17,11 +18,21 @@ class ReporteController extends Controller
     {
         $request->validate([
             'idUsuario' => 'required|exists:usuario,idUsuario',
+            'idPedido' => 'nullable|exists:pedido,idPedido',
             'titulo' => 'required|string|max:150',
-            'descripcion' => 'required|string',
+            'descripcion' => 'nullable|string',
+            'tipo' => 'nullable|string|max:50',
+            'fechaGeneracion' => 'nullable|date',
         ]);
 
-        $reporte = Reporte::create($request->all());
+        $reporte = Reporte::create([
+            'idUsuario' => $request->idUsuario,
+            'idPedido' => $request->idPedido ?? null,
+            'titulo' => $request->titulo,
+            'descripcion' => $request->descripcion ?? null,
+            'tipo' => $request->tipo ?? null,
+            'fechaGeneracion' => $request->fechaGeneracion ?? now(),
+        ]);
 
         return response()->json($reporte, 201);
     }
@@ -34,7 +45,23 @@ class ReporteController extends Controller
     public function update(Request $request, $id)
     {
         $reporte = Reporte::findOrFail($id);
-        $reporte->update($request->all());
+
+        $data = $request->validate([
+            'idPedido' => 'nullable|exists:pedido,idPedido',
+            'idUsuario' => 'nullable|exists:usuario,idUsuario',
+            'titulo' => 'nullable|string|max:150',
+            'descripcion' => 'nullable|string',
+            'tipo' => 'nullable|string|max:50',
+            'fechaGeneracion' => 'nullable|date',
+            'estado' => 'nullable|boolean',
+        ]);
+
+        if (!empty($data['fechaGeneracion'])) {
+            $data['fechaGeneracion'] = Carbon::parse($data['fechaGeneracion']);
+        }
+
+        $reporte->update($data);
+        $reporte->refresh();
 
         return response()->json($reporte);
     }
@@ -42,8 +69,10 @@ class ReporteController extends Controller
     public function destroy($id)
     {
         $reporte = Reporte::findOrFail($id);
-        $reporte->delete();
 
-        return response()->json(['message' => 'Reporte eliminado']);
+        $reporte->estado = 0;
+        $reporte->save();
+
+        return response()->json(['message' => 'Reporte desactivado correctamente']);
     }
 }
