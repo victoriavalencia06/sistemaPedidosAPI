@@ -22,7 +22,7 @@ class Producto extends Model
     ];
 
     protected $casts = [
-        'precio' => 'decimal:2',
+        'precio' => 'float',
         'estado' => 'boolean'
     ];
 

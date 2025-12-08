@@ -13,7 +13,10 @@ class DetallePedidoController extends Controller
 {
     public function index()
     {
-        return response()->json(DetallePedido::all());
+        $detalles = DetallePedido::with(['pedido', 'producto'])
+            ->get();
+
+        return response()->json($detalles);
     }
 
     public function store(Request $request)
@@ -52,13 +55,17 @@ class DetallePedidoController extends Controller
             $pedido->total = (float) $pedido->total + $subtotal;
             $pedido->save();
 
+            $detalle->load(['pedido', 'producto']);
             return response()->json($detalle, 201);
         });
     }
 
     public function show($id)
     {
-        return response()->json(DetallePedido::findOrFail($id));
+        $detalle = DetallePedido::with(['pedido', 'producto'])
+            ->findOrFail($id);
+
+        return response()->json($detalle);
     }
 
     public function update(Request $request, $id)
@@ -118,6 +125,8 @@ class DetallePedidoController extends Controller
             // actualizar total del pedido
             $pedido->total = (float) $pedido->total - $subtotalAnt + $subtotalNuevo;
             $pedido->save();
+
+            $detalle->load(['pedido', 'producto']);
 
             return response()->json($detalle);
         });

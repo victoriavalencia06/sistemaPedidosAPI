@@ -23,7 +23,7 @@ class Pedido extends Model
 
     protected $casts = [
         'fechaPedido' => 'datetime',
-        'total' => 'decimal:2'
+        'total' => 'float'
     ];
 
     public function usuario()

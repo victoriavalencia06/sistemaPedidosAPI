@@ -14,7 +14,12 @@ class PedidoController extends Controller
 {
     public function index()
     {
-        return response()->json(Pedido::all());
+        // CARGAR RELACIONES CON with()
+        $pedidos = Pedido::with(['usuario', 'detalles.producto'])
+            ->orderBy('fechaPedido', 'desc')
+            ->get();
+
+        return response()->json($pedidos);
     }
 
     public function store(Request $request)
@@ -93,7 +98,8 @@ class PedidoController extends Controller
             $pedido->total = $total;
             $pedido->save();
 
-            $pedido->load('detalles', 'usuario');
+            // CARGAR RELACIONES COMPLETAS
+            $pedido->load(['usuario', 'detalles.producto']);
 
             return response()->json($pedido, 201);
         });
@@ -101,12 +107,24 @@ class PedidoController extends Controller
 
     public function show($id)
     {
-        return response()->json(Pedido::findOrFail($id));
+        // CARGAR RELACIONES CON with()
+        $pedido = Pedido::with(['usuario', 'detalles.producto'])
+            ->find($id);
+
+        if (!$pedido) {
+            return response()->json([
+                'message' => 'Pedido no encontrado'
+            ], 404);
+        }
+
+        return response()->json($pedido);
     }
 
     public function update(Request $request, $id)
     {
-        $pedido = Pedido::findOrFail($id);
+        // Cargar pedido con relaciones
+        $pedido = Pedido::with(['usuario', 'detalles.producto'])
+            ->findOrFail($id);
 
         $request->validate([
             'fechaPedido' => 'nullable|date',
@@ -116,17 +134,23 @@ class PedidoController extends Controller
 
         $pedido->update($request->only('fechaPedido', 'tipoPago', 'estado'));
 
+        // Recargar para obtener datos actualizados
+        $pedido->refresh();
+        $pedido->load(['usuario', 'detalles.producto']);
+
         return response()->json($pedido);
     }
 
     public function destroy($id)
     {
         return DB::transaction(function () use ($id) {
-            $pedido = Pedido::findOrFail($id);
+            // Cargar con relaciones
+            $pedido = Pedido::with(['usuario', 'detalles.producto'])
+                ->findOrFail($id);
 
             // Revertir stock de cada detalle
             foreach ($pedido->detalles as $detalle) {
-                $producto = Producto::find($detalle->idProducto);
+                $producto = $detalle->producto; // Ya está cargado
                 if ($producto && is_numeric($producto->stock)) {
                     $producto->increment('stock', $detalle->cantidad);
                 }
@@ -136,7 +160,42 @@ class PedidoController extends Controller
             $pedido->estado = 'Cancelado';
             $pedido->save();
 
-            return response()->json(['message' => 'Pedido anulado (estado Cancelado) y stock revertido']);
+            return response()->json([
+                'message' => 'Pedido anulado (estado Cancelado) y stock revertido',
+                'pedido' => $pedido
+            ]);
+        });
+    }
+
+    // Método adicional para cancelar (si lo necesitas separado)
+    public function cancelar($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $pedido = Pedido::with(['usuario', 'detalles.producto'])
+                ->findOrFail($id);
+
+            // Solo se puede cancelar pedidos pendientes o en proceso
+            if (!in_array($pedido->estado, ['Pendiente', 'Procesando'])) {
+                return response()->json([
+                    'message' => 'Solo se pueden cancelar pedidos en estado Pendiente o Procesando'
+                ], 400);
+            }
+
+            // Revertir stock
+            foreach ($pedido->detalles as $detalle) {
+                $producto = $detalle->producto;
+                if ($producto && is_numeric($producto->stock)) {
+                    $producto->increment('stock', $detalle->cantidad);
+                }
+            }
+
+            $pedido->estado = 'Cancelado';
+            $pedido->save();
+
+            return response()->json([
+                'message' => 'Pedido cancelado exitosamente',
+                'pedido' => $pedido
+            ]);
         });
     }
 }
