@@ -11,7 +11,10 @@ class ReporteController extends Controller
 {
     public function index()
     {
-        return response()->json(Reporte::all());
+        return response()->json(
+            Reporte::with(['usuario:idUsuario,nombre,email', 'pedido:idPedido,total'])
+                ->get()
+        );
     }
 
     public function store(Request $request)
@@ -25,6 +28,18 @@ class ReporteController extends Controller
             'fechaGeneracion' => 'nullable|date',
         ]);
 
+        // Verificar si ya existe un reporte similar (para evitar duplicados)
+        $exists = Reporte::where('idUsuario', $request->idUsuario)
+            ->where('titulo', $request->titulo)
+            ->where('descripcion', $request->descripcion)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => 'Ya existe un reporte similar'
+            ], 422);
+        }
+
         $reporte = Reporte::create([
             'idUsuario' => $request->idUsuario,
             'idPedido' => $request->idPedido ?? null,
@@ -34,12 +49,17 @@ class ReporteController extends Controller
             'fechaGeneracion' => $request->fechaGeneracion ?? now(),
         ]);
 
+        $reporte->load(['usuario:idUsuario,nombre,email', 'pedido:idPedido,total']);
+
         return response()->json($reporte, 201);
     }
 
     public function show($id)
     {
-        return response()->json(Reporte::findOrFail($id));
+        return response()->json(
+            Reporte::with(['usuario:idUsuario,nombre,email', 'pedido:idPedido,total'])
+                ->findOrFail($id)
+        );
     }
 
     public function update(Request $request, $id)
@@ -53,7 +73,6 @@ class ReporteController extends Controller
             'descripcion' => 'nullable|string',
             'tipo' => 'nullable|string|max:50',
             'fechaGeneracion' => 'nullable|date',
-            'estado' => 'nullable|boolean',
         ]);
 
         if (!empty($data['fechaGeneracion'])) {
@@ -62,6 +81,8 @@ class ReporteController extends Controller
 
         $reporte->update($data);
         $reporte->refresh();
+
+        $reporte->load(['usuario:idUsuario,nombre,email', 'pedido:idPedido,total']);
 
         return response()->json($reporte);
     }

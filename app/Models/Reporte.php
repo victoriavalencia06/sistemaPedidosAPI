@@ -18,7 +18,8 @@ class Reporte extends Model
         'titulo',
         'descripcion',
         'tipo',
-        'fechaGeneracion'
+        'fechaGeneracion',
+        'estado'
     ];
 
     protected $casts = [
